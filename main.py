@@ -10,12 +10,12 @@ def get_location_data(city):
         
         response.raise_for_status()
     except requests.exceptions.RequestException:
-        return "connection_error"
+        return None, "connection_error"
     
     response_data = response.json()
 
     if "results" not in response_data:
-        return None
+        return None, "city_not_found"
     
     data = response_data['results'][0]
 
@@ -24,7 +24,7 @@ def get_location_data(city):
     country = data['country']
     city_name = data['name']
 
-    return city_name, country, latitude, longitude
+    return (city_name, country, latitude, longitude), None
 
 def get_weather(latitude, longitude):
     try:
@@ -37,39 +37,43 @@ def get_weather(latitude, longitude):
         )
         response.raise_for_status()
     except requests.exceptions.RequestException:
-        return None
+        return None, "connection_error"
     
     current = response.json()['current']
 
-    return (    
+    weather_data = (    
     current['temperature_2m'],
     current['relative_humidity_2m'],
     current['wind_speed_10m']
     )
 
+    return weather_data, None
+
+def connection_error():
+    print("Could not connect to the weather service. Please try again later.")
+
 def main():
 
-    city = input("Enter a city name: ").strip().title()
+    city = input("\nEnter a city name: ").strip().title()
 
-    location_data = get_location_data(city)
+    location_data, error = get_location_data(city)
 
-    if location_data is None:
+    if error == "connection_error":
+        connection_error()
+        return
+    elif error == "city_not_found":
         print(f"City not found.")
         return
-
-    if location_data == "connection_error":
-        print("Could not connect to the weather service. Please try again later.")
-        return
-
+    
     city_name, country_name, latitude, longitude = location_data
 
-    weather = get_weather(latitude, longitude)
+    weather_data, error = get_weather(latitude, longitude)
 
-    if weather is None:
-        print("Could not retrieve weather data. Please try again later.")
+    if error == "connection_error":
+        connection_error()
         return
 
-    temperature, humidity, wind_speed = weather
+    temperature, humidity, wind_speed = weather_data
 
     print(f"======================================")
     print(f"            WEATHER REPORT            ")
@@ -80,7 +84,7 @@ def main():
     print(f"Longitude: {longitude:.4f}")
     print(f"\nCurrent temperature: {temperature}°C")
     print(f"Current relative humidity: {humidity}%")
-    print(f"Current wind speed: {wind_speed} km/h")
+    print(f"Current wind speed: {wind_speed} km/h\n")
 
 
 main()
